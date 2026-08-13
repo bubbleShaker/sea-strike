@@ -36,3 +36,36 @@ canvas {
   width: 100%;
   height: 100%;
 }
+
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 64px;
+  height: 64px;
+  /* 照準は見るためだけのもの。ここでポインタを受けるとスワイプが切れる */
+  pointer-events: none;
+}
+
+.crosshair__ring,
+.crosshair__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  border-radius: 50%;
+}
+
+.crosshair__ring {
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid color-mix(in srgb, var(--hud) 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hud) 25%, transparent);
+}
+
+.crosshair__dot {
+  width: 4px;
+  height: 4px;
+  background: var(--hud);
+}
