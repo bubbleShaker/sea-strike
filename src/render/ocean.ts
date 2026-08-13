@@ -4,12 +4,17 @@ import { HORIZON_COLOR } from './sky'
 /** 太陽の向き。海の反射と、後で敵機のライティングで共有する */
 export const SUN_DIRECTION = new THREE.Vector3(0.35, 0.6, -0.7).normalize()
 
-const SIZE = 12000
 /**
- * 分割数。頂点シェーダで波を作る以上、細かいほど波が滑らかになるが
- * 256x256 = 約 6.6 万頂点。スマホの GPU で 60fps を保てる上限として選んだ
+ * 板の一辺。フォグが 4200 で空の色に飽和するので、
+ * 中心から 4200 以上あれば板の縁は水平線に溶けて見えない。
+ * それ以上広げても、単色を吐くだけのポリゴンが増える
  */
-const SEGMENTS = 256
+const SIZE = 9000
+/**
+ * 分割数。頂点シェーダで波を作る以上、細かいほど波が滑らかになる。
+ * 1 マス約 47m の密度を保ちつつ、スマホの GPU で 60fps を保てる量として選んだ
+ */
+const SEGMENTS = 192
 
 export interface Ocean {
   mesh: THREE.Mesh
@@ -107,6 +112,11 @@ export function createOcean(): Ocean {
         float distance = length(cameraPosition - vWorldPosition);
         float fog = smoothstep(700.0, 4200.0, distance);
         gl_FragColor = vec4(mix(color, uFogColor, fog), 1.0);
+
+        // three は Color('#...') を linear-sRGB で保持しており、組み込みマテリアルは
+        // 描画の最後に sRGB へ戻している。自前シェーダはその工程を持たないので、
+        // このチャンクを入れないと指定した色より暗く沈む
+        #include <colorspace_fragment>
       }
     `,
   })

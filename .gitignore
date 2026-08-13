@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ビルド生成物。tsc -b はこれを見て型検査を飛ばすので、CI の緑を偽装しうる
+*.tsbuildinfo
+
+# Vite は VITE_ 接頭辞の変数を公開バンドルに展開する。秘密を置いたら公開されてしまう
+.env
+.env.*
