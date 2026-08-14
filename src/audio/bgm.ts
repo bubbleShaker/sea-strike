@@ -69,6 +69,7 @@ export function createBgm(): Bgm {
   let started = false
   /** 再生を拒まれた後、次の操作で鳴らし直す予約をしてあるか */
   let retrying = false
+  let disposed = false
 
   const retry = () => {
     retrying = false
@@ -80,7 +81,9 @@ export function createBgm(): Bgm {
    * 拒まれたまま黙ると、ボタンは「♪ ON」なのに一生鳴らない。次の操作で鳴らし直す
    */
   const armRetry = () => {
-    if (retrying) return
+    // 止めた側の中断（pause は保留中の play() を失敗させる）や、破棄した後の
+    // 後始末もここへ来る。鳴らすべき状態でなければ予約は要らない
+    if (retrying || disposed || !shouldPlay({ started, muted, hidden: document.hidden })) return
     retrying = true
     document.addEventListener('pointerdown', retry, { once: true })
   }
@@ -92,6 +95,7 @@ export function createBgm(): Bgm {
   }
 
   function sync() {
+    if (disposed) return
     if (shouldPlay({ started, muted, hidden: document.hidden })) {
       audio.play().then(disarmRetry, armRetry)
     } else {
@@ -117,6 +121,7 @@ export function createBgm(): Bgm {
       sync()
     },
     dispose() {
+      disposed = true
       document.removeEventListener('visibilitychange', sync)
       disarmRetry()
       audio.pause()

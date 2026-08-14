@@ -21,7 +21,7 @@ describe('shouldPlay', () => {
     expect(shouldPlay({ ...base, hidden: true })).toBe(false)
   })
 
-  it('タブが見えていても、ミュートなら鳴らさない', () => {
-    expect(shouldPlay({ started: true, muted: true, hidden: false })).toBe(false)
+  it('二つ以上そろって欠けていても鳴らさない', () => {
+    expect(shouldPlay({ started: false, muted: true, hidden: true })).toBe(false)
   })
 })
