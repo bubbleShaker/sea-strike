@@ -69,3 +69,88 @@ canvas {
   height: 4px;
   background: var(--hud);
 }
+
+.mode-badge {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, var(--hud) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hud) 30%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, #06131f 62%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.panel {
+  width: min(420px, 100%);
+  padding: 28px 24px;
+  text-align: center;
+  border: 1px solid color-mix(in srgb, var(--hud) 22%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, #0a2033 78%, transparent);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+.panel__title {
+  font-size: 30px;
+  letter-spacing: 0.32em;
+  /* letter-spacing は最後の字の右にも入るので、その分だけ左へ戻して中央に見せる */
+  text-indent: 0.32em;
+  color: var(--hud);
+}
+
+.panel__lead {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: color-mix(in srgb, #e8f6ff 76%, transparent);
+}
+
+.panel__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.panel__note {
+  margin-top: 16px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: color-mix(in srgb, #e8f6ff 52%, transparent);
+}
+
+.button {
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: #e8f6ff;
+  background: color-mix(in srgb, var(--hud) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hud) 34%, transparent);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.button--primary {
+  color: #04202f;
+  background: var(--hud);
+  border-color: var(--hud);
+  font-weight: 700;
+}
+
+.button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
