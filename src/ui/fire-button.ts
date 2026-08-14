@@ -20,6 +20,7 @@ export function createFireButton(container: HTMLElement): FireButton {
   container.appendChild(button)
 
   const held = new Set<number>()
+  const release = () => held.clear()
 
   const onDown = (event: PointerEvent) => {
     held.add(event.pointerId)
@@ -29,16 +30,26 @@ export function createFireButton(container: HTMLElement): FireButton {
   const onUp = (event: PointerEvent) => {
     held.delete(event.pointerId)
   }
+  const onVisibilityChange = () => {
+    if (document.hidden) release()
+  }
 
   button.addEventListener('pointerdown', onDown)
   button.addEventListener('pointerup', onUp)
   button.addEventListener('pointercancel', onUp)
-  // 押したままタブが切り替わると up が来ない。撃ちっぱなしで戻るのを防ぐ
-  window.addEventListener('blur', () => held.clear())
+  // 押したまま画面を離れると up が来ない。撃ちっぱなしで戻るのを防ぐ。
+  // iOS ではアプリ切り替えで blur が来ないことがあるので visibilitychange も見る
+  window.addEventListener('blur', release)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  // ボタンの外で指を離した場合の取りこぼし
+  window.addEventListener('pointerup', onUp)
 
   return {
     isFiring: () => held.size > 0,
     dispose() {
+      window.removeEventListener('blur', release)
+      window.removeEventListener('pointerup', onUp)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       button.remove()
     },
   }

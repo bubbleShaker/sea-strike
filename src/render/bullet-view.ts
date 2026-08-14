@@ -28,8 +28,9 @@ const TRACER_LENGTH: Record<WeaponId, number> = {
   laser: 140,
 }
 
-/** 当たり判定の半径に対する見た目の太さ。細いと遠ざかった瞬間に見えなくなる */
-const TRACER_THICKNESS = 0.5
+/** 見かけの太さ[m]。距離に比例させたうえで、この幅で挟む */
+const TRACER_MIN_THICKNESS = 0.35
+const TRACER_MAX_THICKNESS = 2.6
 
 export interface BulletView {
   /** カメラ位置を要るのは、弾の見かけの大きさを距離で決めるため */
@@ -85,8 +86,8 @@ export function createBulletView(scene: THREE.Scene): BulletView {
         const distance = cameraPosition.distanceTo(dummy.position)
         const length = Math.min(distance * 0.14, TRACER_LENGTH[bullet.weapon])
         const thickness = Math.min(
-          Math.max(distance * 0.0045, 0.35),
-          bullet.radius * TRACER_THICKNESS,
+          Math.max(distance * 0.0045, TRACER_MIN_THICKNESS),
+          TRACER_MAX_THICKNESS,
         )
         dummy.scale.set(thickness, thickness, length)
         dummy.updateMatrix()

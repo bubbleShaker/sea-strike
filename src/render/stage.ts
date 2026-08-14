@@ -5,6 +5,7 @@ import { CRUISE_ALTITUDE } from '../game/constants'
 import type { World } from '../game/world'
 import { createEnemyView } from './enemy-view'
 import { createBulletView } from './bullet-view'
+import { createEnemyBulletView } from './enemy-bullet-view'
 import { createEffects } from './effects'
 
 export interface Stage {
@@ -56,6 +57,7 @@ export function createStage(container: HTMLElement): Stage {
 
   const enemyView = createEnemyView(scene)
   const bulletView = createBulletView(scene)
+  const enemyBulletView = createEnemyBulletView(scene)
   const effects = createEffects(scene)
 
   const resize = () => {
@@ -82,6 +84,7 @@ export function createStage(container: HTMLElement): Stage {
       ocean.update(time, camera.position)
       enemyView.sync(world.enemies)
       bulletView.sync(world.bullets, camera.position)
+      enemyBulletView.sync(world.enemyBullets, camera.position)
       effects.emit(world.events)
       effects.update(dt)
       renderer.render(scene, camera)
@@ -90,6 +93,7 @@ export function createStage(container: HTMLElement): Stage {
       window.removeEventListener('resize', resize)
       enemyView.dispose()
       bulletView.dispose()
+      enemyBulletView.dispose()
       effects.dispose()
       // renderer.dispose() は GPU 上の geometry / material までは解放しない。
       // 海の板だけで数万頂点あるので、明示的に辿って捨てる

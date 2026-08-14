@@ -1,9 +1,13 @@
 import * as THREE from 'three'
 import type { Enemy } from '../game/world'
-import { createEnemyModel, disposeModel } from './models'
+import { MAX_ENEMIES } from '../game/world'
+import { createEnemyModel, disposeEnemyResources } from './models'
 
-/** 同時に見せられる機数。world 側の上限より少し多めに取る */
-const POOL_SIZE = 8
+/**
+ * 同時に見せられる機数。world 側の上限から決める。
+ * 直接書くと、world の上限を上げたときに「当たるのに見えない敵」が生まれる
+ */
+const POOL_SIZE = MAX_ENEMIES
 
 export interface EnemyView {
   /** 世界の敵をそのまま映す。生成も削除もせず、見せる数だけを変える */
@@ -49,11 +53,10 @@ export function createEnemyView(scene: THREE.Scene): EnemyView {
       })
     },
     dispose() {
-      for (const model of pool) {
-        scene.remove(model)
-        disposeModel(model)
-      }
+      for (const model of pool) scene.remove(model)
       pool.length = 0
+      // ジオメトリとマテリアルは全機で共有しているので、ここで一度だけ捨てる
+      disposeEnemyResources()
     },
   }
 }

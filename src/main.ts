@@ -10,13 +10,17 @@ import { createFireButton } from './ui/fire-button'
 import { createWeaponSelector } from './ui/weapon-selector'
 import { createHud } from './ui/hud'
 import { showStartScreen } from './ui/start-screen'
+import { showResultScreen } from './ui/result-screen'
 
-const container = document.querySelector<HTMLDivElement>('#app')
-if (!container) throw new Error('#app が見つからない')
+const root = document.querySelector<HTMLDivElement>('#app')
+if (!root) throw new Error('#app が見つからない')
+// 巻き上げられた関数から参照するため、null を剥いだ形で持ち直す
+const container: HTMLElement = root
 
 /**
  * タブを離れて戻ったときの dt は数秒に達しうる。そのまま積むと機体が瞬間移動するので、
- * 1 フレーム分の進みに上限を置く（進みが遅くなるだけで、破綻はしない）
+ * 1 フレーム分の進みに上限を置く（進みが遅くなるだけで、破綻はしない）。
+ * game 側もこの上限を前提にしている
  */
 const MAX_STEP = 1 / 20
 
@@ -32,6 +36,8 @@ let frame = 0
 let aimSource: AimSource | null = null
 /** 傾きの基準を取り直す手段。スワイプで始めた場合は何もしない */
 let recenter: (() => void) | null = null
+/** 決着の画面を出している間は世界を進めない */
+let settling = false
 
 const modeBadge = createModeBadge(container, () => recenter?.())
 
@@ -39,7 +45,7 @@ function loop(nowMs: number) {
   const dt = Math.min((nowMs - lastMs) / 1000, MAX_STEP)
   lastMs = nowMs
 
-  if (aimSource) {
+  if (aimSource && !settling) {
     world = stepWorld(
       world,
       { aim: aimSource.read(), firing: fireButton.isFiring(), weapon: weaponSelector.current() },
@@ -48,11 +54,26 @@ function loop(nowMs: number) {
     modeBadge.update(aimSource.kind)
     weaponSelector.update(world)
     hud.update(world)
+
+    if (world.phase !== 'playing') void settle()
   }
   stage.render(nowMs / 1000, dt, world)
 
   frame = requestAnimationFrame(loop)
 }
+
+/** 決着 → リザルト → もう一度。海は流したまま、世界だけを作り直す */
+async function settle() {
+  settling = true
+  await showResultScreen(container, world)
+  world = createWorld()
+  hud.update(world)
+  weaponSelector.update(world)
+  // リザルトを見ていた時間ぶん dt が開いている。積まないよう測り直す
+  lastMs = performance.now()
+  settling = false
+}
+
 // 開始画面の裏でも海は流しておく。選ぶ間に世界が止まっていると、書き割りに見える
 frame = requestAnimationFrame(loop)
 
@@ -63,9 +84,10 @@ import.meta.hot?.dispose(() => {
   aimSource?.dispose()
   fireButton.dispose()
   weaponSelector.dispose()
+  hud.dispose()
   stage.dispose()
   crosshair.remove()
-  document.querySelectorAll('.mode-badge, .overlay, .hud').forEach((element) => element.remove())
+  document.querySelectorAll('.mode-badge, .overlay').forEach((element) => element.remove())
 })
 
 const choice = await showStartScreen(container)
