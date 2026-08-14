@@ -2,10 +2,11 @@ import * as THREE from 'three'
 import { createSky } from './sky'
 import { createOcean } from './ocean'
 import { CRUISE_ALTITUDE } from '../game/constants'
+import type { FlightState } from '../game/flight'
 
 export interface Stage {
-  /** 波を進めて 1 フレーム描く。time は秒 */
-  render(time: number): void
+  /** 機体の状態を映して 1 フレーム描く。time は秒（波の位相に使う） */
+  render(time: number, flight: FlightState): void
   dispose(): void
 }
 
@@ -59,7 +60,13 @@ export function createStage(container: HTMLElement): Stage {
   window.addEventListener('resize', resize)
 
   return {
-    render(time) {
+    render(time, flight) {
+      const { position } = flight
+      camera.position.set(position.x, position.y, position.z)
+      // YXZ 順は「まず左右に振り、次に上下に振り、最後に傾ける」の順。
+      // 既定の XYZ 順だと、上を向いた状態で左右に振ったとき視界が捩れる
+      camera.rotation.set(flight.pitch, flight.yaw, flight.bank, 'YXZ')
+
       sky.follow(camera.position)
       ocean.update(time, camera.position)
       renderer.render(scene, camera)

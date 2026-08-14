@@ -82,6 +82,7 @@ export function createOcean(): Ocean {
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform float uTime;
       uniform vec3 uSun;
       uniform vec3 uDeep;
       uniform vec3 uShallow;
@@ -94,6 +95,20 @@ export function createOcean(): Ocean {
       void main() {
         vec3 normal = normalize(vNormal);
         vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+        float distance = length(cameraPosition - vWorldPosition);
+
+        // 細かいさざ波。頂点で作ると 1 マス 47m の格子には収まらない（折り返す）ので、
+        // 高さは動かさず法線だけをここで揺らす。速度感はこの細かさから出る。
+        // 遠くでは 1 画素に何周期も入ってちらつくため、距離で消す
+        vec2 surface = vWorldPosition.xz; // 海面上の位置（x, z）
+        float rippleFade = 1.0 - smoothstep(150.0, 1200.0, distance);
+        float rippleDx = cos(surface.x * 0.16 + uTime * 3.1) * 0.30;
+        float rippleDz = cos(surface.y * 0.19 - uTime * 2.6) * 0.26;
+        // 直交する 2 波だけだと市松模様に見える。斜めの波を重ねて格子を崩す
+        float diagonal = cos((surface.x + surface.y) * 0.105 + uTime * 2.2) * 0.20;
+        rippleDx += diagonal;
+        rippleDz += diagonal;
+        normal = normalize(normal + vec3(-rippleDx, 0.0, -rippleDz) * rippleFade);
 
         // 浅い角度で見るほど空を映す（フレネル）。水平線側が明るくなるのはこれ
         float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
@@ -101,15 +116,14 @@ export function createOcean(): Ocean {
 
         vec3 color = mix(uDeep, uShallow, diffuse * 0.6 + fresnel * 0.8);
 
-        // 波頭の白。高いところだけ泡立たせる
-        color += smoothstep(2.6, 4.2, vHeight) * 0.35;
+        // 波頭の白。うねりの頂上だけ泡立たせる（広く取ると海面が白一色になる）
+        color += smoothstep(3.7, 4.8, vHeight) * 0.4;
 
-        // 鏡面反射でぎらつきを一点だけ置く
+        // 鏡面反射でぎらつきを一点だけ置く。指数を上げるほど点が締まる
         vec3 halfway = normalize(uSun + viewDir);
-        color += pow(max(dot(normal, halfway), 0.0), 90.0) * 0.9;
+        color += pow(max(dot(normal, halfway), 0.0), 220.0) * 0.8;
 
         // 遠方を空の色へ溶かして水平線を作る
-        float distance = length(cameraPosition - vWorldPosition);
         float fog = smoothstep(700.0, 4200.0, distance);
         gl_FragColor = vec4(mix(color, uFogColor, fog), 1.0);
 

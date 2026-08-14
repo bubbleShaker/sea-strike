@@ -1,23 +1,66 @@
 import './style.css'
 import { createStage } from './render/stage'
+import { createSwipeSource } from './input/swipe'
+import { createTiltWithSwipeFallback } from './input/combined'
+import type { AimSource } from './input/aim'
+import { createFlightState, stepFlight } from './game/flight'
+import { createCrosshair } from './ui/crosshair'
+import { createModeBadge } from './ui/mode-badge'
+import { showStartScreen } from './ui/start-screen'
 
 const container = document.querySelector<HTMLDivElement>('#app')
 if (!container) throw new Error('#app が見つからない')
 
-const stage = createStage(container)
+/**
+ * タブを離れて戻ったときの dt は数秒に達しうる。そのまま積むと機体が瞬間移動するので、
+ * 1 フレーム分の進みに上限を置く（進みが遅くなるだけで、破綻はしない）
+ */
+const MAX_STEP = 1 / 20
 
-// ループのハンドルを握っておく。停止手段の無い rAF は、破棄済みのレンダラを
-// 呼び続けることになる（M4 のリザルト → リトライで効いてくる）
+const stage = createStage(container)
+const crosshair = createCrosshair(container)
+
+let flight = createFlightState()
+let lastMs = performance.now()
 let frame = 0
-function loop(elapsedMs: number) {
-  // requestAnimationFrame が渡すのはミリ秒。秒に直してシェーダへ渡す
-  stage.render(elapsedMs / 1000)
+let aimSource: AimSource | null = null
+/** 傾きの基準を取り直す手段。スワイプで始めた場合は何もしない */
+let recenter: (() => void) | null = null
+
+const modeBadge = createModeBadge(container, () => recenter?.())
+
+function loop(nowMs: number) {
+  const dt = Math.min((nowMs - lastMs) / 1000, MAX_STEP)
+  lastMs = nowMs
+
+  if (aimSource) {
+    flight = stepFlight(flight, aimSource.read(), dt)
+    modeBadge.update(aimSource.kind)
+  }
+  stage.render(nowMs / 1000, flight)
+
   frame = requestAnimationFrame(loop)
 }
+// 開始画面の裏でも海は流しておく。選ぶ間に世界が止まっていると、書き割りに見える
 frame = requestAnimationFrame(loop)
 
-// 開発中のホットリロードで、古いループとレンダラが積み上がるのを防ぐ
+// 開発中のホットリロードで、古いループ・レンダラ・DOM が積み上がるのを防ぐ。
+// 開始画面を待つ前に登録しておかないと、選ぶ前に保存した時に取りこぼす
 import.meta.hot?.dispose(() => {
   cancelAnimationFrame(frame)
+  aimSource?.dispose()
   stage.dispose()
+  crosshair.remove()
+  document.querySelectorAll('.mode-badge, .overlay').forEach((element) => element.remove())
 })
+
+const choice = await showStartScreen(container)
+if (choice === 'tilt') {
+  const combined = createTiltWithSwipeFallback(container)
+  aimSource = combined
+  recenter = () => combined.recenter()
+} else {
+  aimSource = createSwipeSource(container)
+}
+// 選び終えた直後は dt が開始画面の滞在時間ぶん開いている。積まないよう測り直す
+lastMs = performance.now()
