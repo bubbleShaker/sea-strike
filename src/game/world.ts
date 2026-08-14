@@ -1,6 +1,6 @@
 import type { AimState } from './aim'
 import { segmentHitsSphere } from './collision'
-import { TARGET_KILLS } from './constants'
+import { MAX_ENEMIES, TARGET_KILLS } from './constants'
 import { createFlightState, stepFlight, FORWARD_SPEED, type FlightState } from './flight'
 import {
   add,
@@ -113,19 +113,16 @@ const SPAWN_MIN_ALTITUDE = 25
 const SPAWN_MAX_ALTITUDE = 160
 const SPAWN_INTERVAL = 1.5
 
-/**
- * 同時に出す上限。多すぎると避けられず、少なすぎると間延びする。
- * 描画側のプールもこの値から決めるので、export している
- */
-export const MAX_ENEMIES = 5
-
 const ENEMY_SPEED = 90
 const ENEMY_HP = 40
 const ENEMY_RADIUS = 9
 
 /** 敵が撃ってくる距離[m]。これより遠いと当たらないので撃たない */
 const ENEMY_FIRE_RANGE = 750
-/** 敵の射撃間隔[s]。同時に 5 機いるので、実際はこの 1/5 の頻度で飛んでくる */
+/**
+ * 敵の射撃間隔[s]。射程に入っている機体だけが撃つので、
+ * 実際に飛んでくる頻度は「射程内にいる機数 / この間隔」になる
+ */
 const ENEMY_FIRE_INTERVAL = 3.6
 const ENEMY_BULLET_SPEED = 380
 const ENEMY_BULLET_DAMAGE = 10
@@ -269,7 +266,8 @@ function fire(
     const heading = spreadDirection(aimDirection, weapon.spread, random)
     bullets.push({
       id: nextId++,
-      position: muzzle,
+      // 散弾は 7 発が同じ位置から出る。複製して、弾ごとに独立した値にしておく
+      position: { ...muzzle },
       velocity: add(scale(heading, weapon.speed), carried),
       life: weapon.life,
       damage: weapon.damage,
@@ -280,6 +278,51 @@ function fire(
       hitIds: [],
     })
   }
+  return { bullets, nextId }
+}
+
+/**
+ * 敵に撃たせる。撃てるのは、こちらより前にいて射程に入っている機体だけ。
+ *
+ * 射程外だったときはタイマーを戻さない。戻すと、遠くで一度空撃ちした機体が
+ * 次の間隔を待つ間に後方へ抜けてしまい、一発も撃たないまま去っていく。
+ *
+ * 渡された enemies の fireTimer は書き換える（呼び出し元がこのフレームで
+ * 複製した配列であることが前提）。
+ */
+function fireEnemyWeapons(
+  enemies: Enemy[],
+  flight: FlightState,
+  firstId: number,
+): { bullets: EnemyBullet[]; nextId: number } {
+  const bullets: EnemyBullet[] = []
+  let nextId = firstId
+
+  for (const enemy of enemies) {
+    if (enemy.fireTimer > 0) continue
+
+    const toPlayer = sub(flight.position, enemy.position)
+    const distance = length(toPlayer)
+    if (distance > ENEMY_FIRE_RANGE || enemy.position.z > flight.position.z) continue
+
+    enemy.fireTimer = ENEMY_FIRE_INTERVAL
+
+    // こちらは 150m/s で前進し続けるので、今いる場所へ撃つと必ず後ろへ抜ける。
+    // 前進ぶんだけは読んで撃つ。読まないのは横と上下の動きで、
+    // 「真っ直ぐ飛べば当たる、機首を振って動けば外れる」という駆け引きにする
+    const travelTime = distance / (ENEMY_BULLET_SPEED + FORWARD_SPEED)
+    const predicted = add(flight.position, vec(0, 0, -FORWARD_SPEED * travelTime))
+
+    bullets.push({
+      id: nextId++,
+      position: { ...enemy.position },
+      velocity: scale(normalize(sub(predicted, enemy.position)), ENEMY_BULLET_SPEED),
+      life: ENEMY_BULLET_LIFE,
+      damage: ENEMY_BULLET_DAMAGE,
+      radius: ENEMY_BULLET_RADIUS,
+    })
+  }
+
   return { bullets, nextId }
 }
 
@@ -325,30 +368,9 @@ export function stepWorld(
     }
   }
 
-  // 敵の射撃。撃ってくるのは、こちらより前にいて射程に入った機体だけ
-  const enemyBullets: EnemyBullet[] = []
-  for (const enemy of enemies) {
-    if (enemy.fireTimer > 0) continue
-    enemy.fireTimer = ENEMY_FIRE_INTERVAL
-    const toPlayer = sub(flight.position, enemy.position)
-    const distance = length(toPlayer)
-    if (distance > ENEMY_FIRE_RANGE || enemy.position.z > flight.position.z) continue
-
-    // こちらは 150m/s で前進し続けるので、今いる場所へ撃つと必ず後ろへ抜ける。
-    // 前進ぶんだけは読んで撃つ。読まないのは横と上下の動きで、
-    // 「真っ直ぐ飛べば当たる、機首を振って動けば外れる」という駆け引きにする
-    const travelTime = distance / (ENEMY_BULLET_SPEED + FORWARD_SPEED)
-    const predicted = add(flight.position, vec(0, 0, -FORWARD_SPEED * travelTime))
-
-    enemyBullets.push({
-      id: nextId++,
-      position: { ...enemy.position },
-      velocity: scale(normalize(sub(predicted, enemy.position)), ENEMY_BULLET_SPEED),
-      life: ENEMY_BULLET_LIFE,
-      damage: ENEMY_BULLET_DAMAGE,
-      radius: ENEMY_BULLET_RADIUS,
-    })
-  }
+  const fired = fireEnemyWeapons(enemies, flight, nextId)
+  const enemyBullets = fired.bullets
+  nextId = fired.nextId
 
   // 発射
   const ammo = { ...world.ammo }
@@ -369,7 +391,7 @@ export function stepWorld(
     shots += shot.bullets.length
     events.push({ type: 'fire', weapon: command.weapon })
   } else {
-    // 撃たなかったぶんの借金は繰り越さない（撃たずに待って連射する裏技を作らない）
+    // 撃たずに待っても貯まらない（溜めておいて一気に連射する裏技を作らない）
     cooldown = Math.max(cooldown, 0)
   }
 
@@ -443,7 +465,8 @@ export function stepWorld(
     flyingEnemyBullets.push({ ...bullet, position: to, life })
   }
 
-  // 生き残っている敵とぶつかったら、その機体は落ちずにこちらが痛む
+  // 生き残っている敵とぶつかったら、双方が消える。撃墜数には入れない
+  // （体当たりで数を稼げてしまう）
   const clear: Enemy[] = []
   for (const enemy of alive) {
     if (length(sub(enemy.position, flight.position)) <= enemy.radius + PLAYER_RADIUS) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { Enemy } from '../game/world'
-import { MAX_ENEMIES } from '../game/world'
-import { createEnemyModel, disposeEnemyResources } from './models'
+import { MAX_ENEMIES } from '../game/constants'
+import { createEnemyModelFactory } from './models'
 
 /**
  * 同時に見せられる機数。world 側の上限から決める。
@@ -23,9 +23,10 @@ export interface EnemyView {
  * 見た目の状態はここに持たず、渡された配列の通りに置き直す。
  */
 export function createEnemyView(scene: THREE.Scene): EnemyView {
+  const models = createEnemyModelFactory()
   const pool: THREE.Group[] = []
   for (let i = 0; i < POOL_SIZE; i++) {
-    const model = createEnemyModel()
+    const model = models.create()
     model.visible = false
     scene.add(model)
     pool.push(model)
@@ -55,8 +56,8 @@ export function createEnemyView(scene: THREE.Scene): EnemyView {
     dispose() {
       for (const model of pool) scene.remove(model)
       pool.length = 0
-      // ジオメトリとマテリアルは全機で共有しているので、ここで一度だけ捨てる
-      disposeEnemyResources()
+      // ジオメトリと材質は全機で共有しているので、作った側が一度だけ捨てる
+      models.dispose()
     },
   }
 }

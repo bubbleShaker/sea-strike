@@ -10,10 +10,13 @@ const MAX_BULLETS = 80
  * 向かってくる弾と自分が撃った弾の区別がつかず、避ける判断ができない。
  * こちらは球で、赤く光らせる。
  */
-export function createEnemyBulletView(scene: THREE.Scene): {
+export interface EnemyBulletView {
+  /** カメラ位置が要るのは、遠くの弾が点にならないよう見かけの大きさを保つため */
   sync(bullets: EnemyBullet[], cameraPosition: THREE.Vector3): void
   dispose(): void
-} {
+}
+
+export function createEnemyBulletView(scene: THREE.Scene): EnemyBulletView {
   const geometry = new THREE.SphereGeometry(1, 8, 6)
   const material = new THREE.MeshBasicMaterial({ color: '#ff5a3c', toneMapped: false })
   const mesh = new THREE.InstancedMesh(geometry, material, MAX_BULLETS)

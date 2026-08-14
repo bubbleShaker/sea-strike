@@ -34,12 +34,10 @@ let world = createWorld()
 let lastMs = performance.now()
 let frame = 0
 let aimSource: AimSource | null = null
-/** 傾きの基準を取り直す手段。スワイプで始めた場合は何もしない */
-let recenter: (() => void) | null = null
 /** 決着の画面を出している間は世界を進めない */
 let settling = false
 
-const modeBadge = createModeBadge(container, () => recenter?.())
+const modeBadge = createModeBadge(container, () => aimSource?.recenter())
 
 function loop(nowMs: number) {
   const dt = Math.min((nowMs - lastMs) / 1000, MAX_STEP)
@@ -55,7 +53,12 @@ function loop(nowMs: number) {
     weaponSelector.update(world)
     hud.update(world)
 
-    if (world.phase !== 'playing') void settle()
+    if (world.phase !== 'playing') {
+      // 失敗しても settling を解いておかないと、以後ゲームが無言で止まる
+      settle().catch(() => {
+        settling = false
+      })
+    }
   }
   stage.render(nowMs / 1000, dt, world)
 
@@ -65,8 +68,17 @@ function loop(nowMs: number) {
 /** 決着 → リザルト → もう一度。海は流したまま、世界だけを作り直す */
 async function settle() {
   settling = true
-  await showResultScreen(container, world)
+  const finished = world
+  // 通知は「そのフレームの出来事」。世界を止めたまま渡し続けると、
+  // 最後の爆発がリザルトの裏で毎フレーム焚かれ、光が焼き付く
+  world = { ...world, events: [] }
+
+  await showResultScreen(container, finished)
+
   world = createWorld()
+  // 入力は累積式なので、前回終わったときの向きが残っている。
+  // 戻さないと、始まった瞬間に機体がそちらへ振られる
+  aimSource?.recenter()
   hud.update(world)
   weaponSelector.update(world)
   // リザルトを見ていた時間ぶん dt が開いている。積まないよう測り直す
@@ -91,12 +103,7 @@ import.meta.hot?.dispose(() => {
 })
 
 const choice = await showStartScreen(container)
-if (choice === 'tilt') {
-  const combined = createTiltWithSwipeFallback(container)
-  aimSource = combined
-  recenter = () => combined.recenter()
-} else {
-  aimSource = createSwipeSource(container)
-}
+aimSource =
+  choice === 'tilt' ? createTiltWithSwipeFallback(container) : createSwipeSource(container)
 // 選び終えた直後は dt が開始画面の滞在時間ぶん開いている。積まないよう測り直す
 lastMs = performance.now()

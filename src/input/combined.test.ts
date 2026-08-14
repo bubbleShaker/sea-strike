@@ -20,6 +20,9 @@ function fakeTilt(): TiltSource & { signal: boolean; aim: AimState; aligned: Aim
     calibrate() {
       this.aim = { x: 0, y: 0 }
     },
+    recenter() {
+      this.calibrate()
+    },
     alignTo(target) {
       this.aligned = { ...target }
       this.aim = { ...target }
@@ -37,6 +40,9 @@ function fakeSwipe(): SwipeSource & { aim: AimState } {
     },
     set(next) {
       this.aim = { ...next }
+    },
+    recenter() {
+      this.aim = { x: 0, y: 0 }
     },
     dispose() {},
   }

@@ -249,6 +249,13 @@ describe('被弾と決着', () => {
   it('射程外の敵は撃ってこない', () => {
     const after = run(withShooter(2000), still, 3)
     expect(after.hp).toBe(after.maxHp)
+    expect(after.enemyBullets).toHaveLength(0)
+  })
+
+  it('射程外で待たされても、入った瞬間に撃てる（空撃ちで待たされない）', () => {
+    // 射程 750m の外に置く。近づいて射程に入るまで撃たず、入ったら撃つ
+    const approaching = run(withShooter(900), still, 1.5)
+    expect(approaching.enemyBullets.length).toBeGreaterThan(0)
   })
 
   it('敵とぶつかると大きく傷つき、その機体は消える', () => {
@@ -285,6 +292,14 @@ describe('被弾と決着', () => {
     const after = run(world, { ...still, firing: true }, 2)
     expect(after.kills).toBe(20)
     expect(after.phase).toBe('won')
+  })
+
+  it('目の前まで来た敵にも当たる（銃口の前が死角にならない）', () => {
+    for (const distance of [25, 40, 80]) {
+      const close = withEnemy(createWorld(), distance)
+      const after = run(close, { ...still, firing: true, weapon: 'spread' }, 0.4)
+      expect(after.hits).toBeGreaterThan(0)
+    }
   })
 
   it('撃った数と当てた数を数えている（命中率のため）', () => {

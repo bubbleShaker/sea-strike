@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { calculateScore, type ScoreInput } from './score'
+import { calculateScore, PAR_TIME, type ScoreInput } from './score'
 
 const base: ScoreInput = {
   kills: 20,
-  elapsed: 90,
+  elapsed: PAR_TIME / 2,
   hp: 100,
   maxHp: 100,
   shots: 100,
@@ -13,14 +13,14 @@ const base: ScoreInput = {
 
 describe('calculateScore', () => {
   it('速く終えるほど時間の点が高い', () => {
-    const fast = calculateScore({ ...base, elapsed: 60 }).time
-    const slow = calculateScore({ ...base, elapsed: 150 }).time
+    const fast = calculateScore({ ...base, elapsed: PAR_TIME + 10 }).time
+    const slow = calculateScore({ ...base, elapsed: PAR_TIME + 60 }).time
     expect(fast).toBeGreaterThan(slow)
   })
 
   it('目標時間までに終えれば時間の点は満点', () => {
-    expect(calculateScore({ ...base, elapsed: 40 }).time).toBe(
-      calculateScore({ ...base, elapsed: 90 }).time,
+    expect(calculateScore({ ...base, elapsed: 5 }).time).toBe(
+      calculateScore({ ...base, elapsed: PAR_TIME }).time,
     )
   })
 

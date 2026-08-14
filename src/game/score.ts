@@ -1,4 +1,4 @@
-import { TARGET_KILLS } from './constants'
+
 
 /** スコアの内訳。合計だけ見せると、何が効いたのか分からない */
 export interface ScoreBreakdown {
@@ -29,13 +29,29 @@ export interface ScoreInput {
   won: boolean
 }
 
-/** この時間で終えれば時間点が満点。これを過ぎると 0 に近づく */
-const PAR_TIME = 90
+/**
+ * この時間で終えれば時間点が満点。これを過ぎると 0 に近づく。
+ * 全弾必中で駆け抜けると 30 秒強で終わるので、そこから少し余裕を見た値。
+ * 緩くしすぎると勝った人が全員満点になり、点が勝敗の言い換えにしかならない
+ */
+export const PAR_TIME = 60
 const KILL_POINT = 120
 const TIME_POINT_MAX = 1500
 const ACCURACY_POINT_MAX = 800
 const DAMAGE_POINT = 12
 const PERFECT_BONUS = 1000
+
+/**
+ * 命中率（0..1）。
+ *
+ * 貫通する弾は 1 発で複数機に当たるので、素直に割ると 1 を超える。
+ * 表示とスコアで別々に計算すると「命中率 400%」と「命中率の点は満点」が
+ * 同じ画面に並ぶので、ここに一本化する。
+ */
+export function accuracyRatio(shots: number, hits: number): number {
+  if (shots <= 0) return 0
+  return Math.min(hits / shots, 1)
+}
 
 /**
  * スコアを出す。
@@ -54,8 +70,7 @@ export function calculateScore(input: ScoreInput): ScoreBreakdown {
   const timeRatio = Math.max(0, 1 - Math.max(0, input.elapsed - PAR_TIME) / PAR_TIME)
   const time = input.won ? Math.round(TIME_POINT_MAX * timeRatio) : 0
 
-  const accuracyRatio = input.shots === 0 ? 0 : Math.min(input.hits / input.shots, 1)
-  const accuracy = Math.round(ACCURACY_POINT_MAX * accuracyRatio)
+  const accuracy = Math.round(ACCURACY_POINT_MAX * accuracyRatio(input.shots, input.hits))
 
   const damage = -Math.round(Math.max(0, input.maxHp - input.hp) * DAMAGE_POINT)
 
@@ -70,9 +85,4 @@ export function calculateScore(input: ScoreInput): ScoreBreakdown {
     // 合計が負になると「頑張ったのに減った」だけが残るので、下は 0 で止める
     total: Math.max(0, kills + time + accuracy + damage + perfect),
   }
-}
-
-/** 到達度。負けたときに「あと何機だったか」を見せるために使う */
-export function killProgress(kills: number): number {
-  return Math.min(kills / TARGET_KILLS, 1)
 }

@@ -8,3 +8,9 @@ export const CRUISE_ALTITUDE = 48
 
 /** これだけ落とせば勝ち。長すぎると中だるみし、短すぎると持ち替える暇がない */
 export const TARGET_KILLS = 20
+
+/**
+ * 同時に出す敵機の上限。多すぎると避けられず、少なすぎると間延びする。
+ * 描画側のプールもこの値から決める（直書きすると「当たるのに見えない敵」が生まれる）
+ */
+export const MAX_ENEMIES = 5

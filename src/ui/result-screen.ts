@@ -1,5 +1,5 @@
 import { TARGET_KILLS } from '../game/constants'
-import { calculateScore } from '../game/score'
+import { accuracyRatio, calculateScore } from '../game/score'
 import type { World } from '../game/world'
 import { formatTime } from './hud'
 
@@ -21,7 +21,9 @@ export function showResultScreen(container: HTMLElement, world: World): Promise<
     won,
   })
 
-  const accuracy = world.shots === 0 ? 0 : Math.round((world.hits / world.shots) * 100)
+  // 貫通弾は 1 発で複数機に当たる。スコアと同じ計算を使わないと、
+  // 「命中率 400%」と「命中率の点は満点」が同じ画面に並ぶ
+  const accuracy = Math.round(accuracyRatio(world.shots, world.hits) * 100)
 
   const rows: Array<[string, string]> = [
     ['撃墜', `${world.kills} / ${TARGET_KILLS}`],
