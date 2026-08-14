@@ -1,8 +1,13 @@
 import * as THREE from 'three'
 import { HORIZON_COLOR } from './sky'
 
-/** 太陽の向き。海の反射と、後で敵機のライティングで共有する */
-export const SUN_DIRECTION = new THREE.Vector3(0.35, 0.6, -0.7).normalize()
+/**
+ * 太陽の向き。海の反射と敵機のライティングで共有する。
+ *
+ * 背後（+Z）に置いてある。前方に置くと正面から来る敵が逆光で真っ黒になり、
+ * 海のぎらつきも視線の先に居座って狙いの邪魔をする
+ */
+export const SUN_DIRECTION = new THREE.Vector3(0.32, 0.62, 0.72).normalize()
 
 /**
  * 板の一辺。フォグが 4200 で空の色に飽和するので、

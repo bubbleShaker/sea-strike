@@ -91,6 +91,64 @@ canvas {
   pointer-events: none;
 }
 
+.hud {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.hud__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hud__label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: color-mix(in srgb, var(--hud) 55%, transparent);
+}
+
+.hud__value {
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  color: var(--hud);
+  /* 数字が増減しても幅が揺れないようにする */
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--hud) 40%, transparent);
+}
+
+.fire-button {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 96px;
+  height: 96px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #04202f;
+  background: radial-gradient(
+    circle at 50% 40%,
+    color-mix(in srgb, var(--warn) 92%, white),
+    var(--warn)
+  );
+  border: 2px solid color-mix(in srgb, white 45%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  cursor: pointer;
+  /* 押下時の見た目の変化だけは残す。押した実感が無いと連射しづらい */
+  transition: transform 0.06s ease;
+}
+
+.fire-button:active {
+  transform: scale(0.93);
+}
+
 .overlay {
   position: absolute;
   inset: 0;

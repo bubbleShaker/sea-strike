@@ -1,11 +1,6 @@
 import { CRUISE_ALTITUDE } from './constants'
 import { clampAim, type AimState } from './aim'
-
-export interface Vec3 {
-  x: number
-  y: number
-  z: number
-}
+import type { Vec3 } from './vec'
 
 export interface FlightState {
   position: Vec3

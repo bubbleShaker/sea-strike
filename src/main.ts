@@ -3,9 +3,11 @@ import { createStage } from './render/stage'
 import { createSwipeSource } from './input/swipe'
 import { createTiltWithSwipeFallback } from './input/combined'
 import type { AimSource } from './input/aim'
-import { createFlightState, stepFlight } from './game/flight'
+import { createWorld, stepWorld } from './game/world'
 import { createCrosshair } from './ui/crosshair'
 import { createModeBadge } from './ui/mode-badge'
+import { createFireButton } from './ui/fire-button'
+import { createHud } from './ui/hud'
 import { showStartScreen } from './ui/start-screen'
 
 const container = document.querySelector<HTMLDivElement>('#app')
@@ -19,8 +21,10 @@ const MAX_STEP = 1 / 20
 
 const stage = createStage(container)
 const crosshair = createCrosshair(container)
+const hud = createHud(container)
+const fireButton = createFireButton(container)
 
-let flight = createFlightState()
+let world = createWorld()
 let lastMs = performance.now()
 let frame = 0
 let aimSource: AimSource | null = null
@@ -34,10 +38,15 @@ function loop(nowMs: number) {
   lastMs = nowMs
 
   if (aimSource) {
-    flight = stepFlight(flight, aimSource.read(), dt)
+    world = stepWorld(
+      world,
+      { aim: aimSource.read(), firing: fireButton.isFiring(), weapon: 'vulcan' },
+      dt,
+    )
     modeBadge.update(aimSource.kind)
+    hud.update(world)
   }
-  stage.render(nowMs / 1000, flight)
+  stage.render(nowMs / 1000, dt, world)
 
   frame = requestAnimationFrame(loop)
 }
@@ -49,9 +58,10 @@ frame = requestAnimationFrame(loop)
 import.meta.hot?.dispose(() => {
   cancelAnimationFrame(frame)
   aimSource?.dispose()
+  fireButton.dispose()
   stage.dispose()
   crosshair.remove()
-  document.querySelectorAll('.mode-badge, .overlay').forEach((element) => element.remove())
+  document.querySelectorAll('.mode-badge, .overlay, .hud').forEach((element) => element.remove())
 })
 
 const choice = await showStartScreen(container)

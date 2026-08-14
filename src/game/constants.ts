@@ -5,3 +5,6 @@
 
 /** 巡航高度[m]。低すぎると波に埋もれ、高すぎると海が遠い書き割りになる */
 export const CRUISE_ALTITUDE = 48
+
+/** これだけ落とせば勝ち。長すぎると中だるみし、短すぎると持ち替える暇がない */
+export const TARGET_KILLS = 20
