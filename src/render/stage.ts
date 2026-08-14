@@ -8,6 +8,10 @@ import { createBulletView } from './bullet-view'
 import { createEnemyBulletView } from './enemy-bullet-view'
 import { createEffects } from './effects'
 
+/** 被弾で機体が揺すぶられる幅[m] と、傾く角[rad]。揺れの量（0..1）に掛ける */
+const SHAKE_OFFSET = 1.4
+const SHAKE_ROLL = 0.14
+
 export interface Stage {
   /**
    * 世界をそのまま映して 1 フレーム描く。
@@ -80,13 +84,27 @@ export function createStage(container: HTMLElement): Stage {
       // 既定の XYZ 順だと、上を向いた状態で左右に振ったとき視界が捩れる
       camera.rotation.set(world.flight.pitch, world.flight.yaw, world.flight.bank, 'YXZ')
 
+      effects.emit(world.events)
+      effects.update(dt, camera.position)
+
+      // 被弾の衝撃。機体が揺すぶられたように見せる。
+      //
+      // 揺らすのは位置と傾き（roll）だけで、視線の向き（pitch / yaw）は動かさない。
+      // 向きを揺らすと、弾が飛ぶ方向と画面中央のクロスヘアがずれ、
+      // 被弾のあと 1 秒ほど「狙ったのに外れる」状態になる。
+      // roll は画面が回るだけで中心は動かないので、照準を嘘にしない
+      if (effects.shake > 0) {
+        const amount = effects.shake
+        camera.position.x += (Math.random() - 0.5) * SHAKE_OFFSET * amount
+        camera.position.y += (Math.random() - 0.5) * SHAKE_OFFSET * amount
+        camera.rotation.z += (Math.random() - 0.5) * SHAKE_ROLL * amount
+      }
+
       sky.follow(camera.position)
       ocean.update(time, camera.position)
       enemyView.sync(world.enemies)
       bulletView.sync(world.bullets, camera.position)
       enemyBulletView.sync(world.enemyBullets, camera.position)
-      effects.emit(world.events)
-      effects.update(dt)
       renderer.render(scene, camera)
     },
     dispose() {
