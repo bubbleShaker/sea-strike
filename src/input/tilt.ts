@@ -7,7 +7,7 @@ import { tiltToAim } from './tilt-math'
 export const TILT_SIGNAL_TIMEOUT_MS = 1200
 
 export interface TiltSource extends AimSource {
-  /** 今の姿勢を基準に取り直し、照準を中央へ戻す */
+  /** 今の姿勢を基準に取り直し、照準を中央へ戻す（AimSource.recenter と同じもの） */
   calibrate(): void
   /** 今の姿勢が指定の照準を指すよう基準をずらす。スワイプから引き継ぐときに使う */
   alignTo(aim: AimState): void
@@ -106,6 +106,7 @@ export function createTiltSource(): TiltSource {
     kind: 'tilt',
     read: () => aim,
     calibrate,
+    recenter: calibrate,
     alignTo(target) {
       offset.x = raw.x - target.x
       offset.y = raw.y - target.y

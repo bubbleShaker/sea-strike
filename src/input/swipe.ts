@@ -69,6 +69,10 @@ export function createSwipeSource(target: HTMLElement): SwipeSource {
       aim.x = clampAim(next.x)
       aim.y = clampAim(next.y)
     },
+    recenter() {
+      aim.x = 0
+      aim.y = 0
+    },
     dispose() {
       target.removeEventListener('pointerdown', onPointerDown)
       target.removeEventListener('pointermove', onPointerMove)

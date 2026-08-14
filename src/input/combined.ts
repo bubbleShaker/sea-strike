@@ -2,10 +2,7 @@ import type { AimSource } from './aim'
 import { createSwipeSource, type SwipeSource } from './swipe'
 import { createTiltSource, type TiltSource } from './tilt'
 
-export interface CombinedAimSource extends AimSource {
-  /** 傾きの基準を取り直す。持ち方を変えたときの逃げ道 */
-  recenter(): void
-}
+export type CombinedAimSource = AimSource
 
 /**
  * 傾きを主に、反応が無い間はスワイプで操作できる入力源。
@@ -38,7 +35,11 @@ export function combineTiltAndSwipe(tilt: TiltSource, swipe: SwipeSource): Combi
       return sync() ? ('tilt' as const) : ('swipe' as const)
     },
     read: () => (sync() ? tilt.read() : swipe.read()),
-    recenter: () => tilt.calibrate(),
+    // 両方戻す。どちらが効いているかに関わらず「中央に戻る」ことを保証したい
+    recenter() {
+      tilt.calibrate()
+      swipe.recenter()
+    },
     dispose() {
       tilt.dispose()
       swipe.dispose()
