@@ -9,6 +9,8 @@ import { createModeBadge } from './ui/mode-badge'
 import { createFireButton } from './ui/fire-button'
 import { createWeaponSelector } from './ui/weapon-selector'
 import { createHud } from './ui/hud'
+import { createMuteButton } from './ui/mute-button'
+import { createBgm } from './audio/bgm'
 import { showStartScreen } from './ui/start-screen'
 import { showResultScreen } from './ui/result-screen'
 
@@ -32,6 +34,12 @@ const crosshair = createCrosshair(container)
 const hud = createHud(container)
 const fireButton = createFireButton(container)
 const weaponSelector = createWeaponSelector(container)
+// 開始画面を見ている間に読み込ませておく。鳴らし始めるのは選び終えた後
+const bgm = createBgm()
+const muteButton = createMuteButton(container, {
+  muted: bgm.muted,
+  onChange: (muted) => bgm.setMuted(muted),
+})
 
 let world = createWorld()
 let lastMs = performance.now()
@@ -114,12 +122,17 @@ import.meta.hot?.dispose(() => {
   fireButton.dispose()
   weaponSelector.dispose()
   hud.dispose()
+  muteButton.dispose()
+  bgm.dispose()
   stage.dispose()
   crosshair.remove()
   document.querySelectorAll('.mode-badge, .overlay').forEach((element) => element.remove())
 })
 
 const choice = await showStartScreen(container)
+// ここまで来たということは、開始画面のボタンが押されている。
+// 音を鳴らせるのはユーザーが一度操作した後だけなので、この位置まで待つ
+bgm.start()
 aimSource =
   choice === 'tilt' ? createTiltWithSwipeFallback(container) : createSwipeSource(container)
 // 選び終えた直後は dt が開始画面の滞在時間ぶん開いている。積まないよう測り直す

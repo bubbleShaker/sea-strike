@@ -15,7 +15,7 @@ export function createModeBadge(
 ): { update(kind: AimKind): void } {
   const badge = document.createElement('button')
   badge.type = 'button'
-  badge.className = 'mode-badge'
+  badge.className = 'badge mode-badge'
   // 照準の操作として拾われないようにする（このボタンの上でのドラッグは無効）
   badge.dataset.noAim = ''
   badge.addEventListener('click', onRecenter)

@@ -32,6 +32,10 @@ export function showStartScreen(container: HTMLElement): Promise<ControlChoice> 
           ? '傾きが使えない端末では、自動でスワイプに切り替わる。'
           : 'この端末では傾きセンサーが使えないため、スワイプで操作する。'
       }</p>
+      <p class="panel__credit">
+        BGM: <a href="https://musmus.main.jp/" target="_blank" rel="noopener">MusMus</a>
+        「Starry Eyed」
+      </p>
     </div>
   `
 
