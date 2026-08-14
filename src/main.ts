@@ -36,10 +36,7 @@ const fireButton = createFireButton(container)
 const weaponSelector = createWeaponSelector(container)
 // 開始画面を見ている間に読み込ませておく。鳴らし始めるのは選び終えた後
 const bgm = createBgm()
-const muteButton = createMuteButton(container, {
-  muted: bgm.muted,
-  onChange: (muted) => bgm.setMuted(muted),
-})
+const muteButton = createMuteButton(container, bgm)
 
 let world = createWorld()
 let lastMs = performance.now()
@@ -129,10 +126,9 @@ import.meta.hot?.dispose(() => {
   document.querySelectorAll('.mode-badge, .overlay').forEach((element) => element.remove())
 })
 
-const choice = await showStartScreen(container)
-// ここまで来たということは、開始画面のボタンが押されている。
-// 音を鳴らせるのはユーザーが一度操作した後だけなので、この位置まで待つ
-bgm.start()
+// 音を鳴らせるのはユーザーの操作の中だけ。開始画面のボタンが押された瞬間に始める
+// （選び終えるのを待つと、傾きの許可ダイアログを跨いだ後になり iOS で拒まれる）
+const choice = await showStartScreen(container, () => bgm.start())
 aimSource =
   choice === 'tilt' ? createTiltWithSwipeFallback(container) : createSwipeSource(container)
 // 選び終えた直後は dt が開始画面の滞在時間ぶん開いている。積まないよう測り直す

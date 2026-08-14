@@ -8,7 +8,7 @@ const VOLUME = 0.32
 const MUTED_KEY = 'sea-strike:bgm-muted'
 
 export interface Bgm {
-  /** ミュート中か。ボタンの初期表示に使う */
+  /** ミュート中か。ボタンの表示に使う */
   readonly muted: boolean
   /**
    * 再生を始める。**ユーザーの操作から始まった処理の中で**呼ぶこと。
@@ -17,6 +17,22 @@ export interface Bgm {
   start(): void
   setMuted(muted: boolean): void
   dispose(): void
+}
+
+export interface BgmState {
+  /** 開始画面を抜けたか。それまでは鳴らさない */
+  started: boolean
+  muted: boolean
+  /** タブが隠れているか */
+  hidden: boolean
+}
+
+/**
+ * 鳴っているべきか。再生の条件をここ一つに集めてある。
+ * 純関数にしてあるのは、この判断だけは音を出さずに検証したいから
+ */
+export function shouldPlay({ started, muted, hidden }: BgmState): boolean {
+  return started && !muted && !hidden
 }
 
 /** localStorage はプライベートブラウジングなどで例外を投げる。音の設定ごときで止めない */
@@ -39,8 +55,8 @@ function writeMuted(muted: boolean): void {
 /**
  * BGM。曲は Starry Eyed / YM-2608 Chiptune（音楽素材 MusMus, 作曲: watson）。
  *
- * ゲームのドメイン層は音を知らない。ここは「鳴っているべきか」という一つの条件
- * （開始済み・ミュートでない・タブが見えている）を音の再生に写すだけの層にしてある。
+ * ゲームのドメイン層は音を知らない。ここは `shouldPlay` の判断を実際の再生に
+ * 写すだけの層にしてある。
  */
 export function createBgm(): Bgm {
   const audio = new Audio(bgmUrl)
@@ -51,16 +67,37 @@ export function createBgm(): Bgm {
 
   let muted = readMuted()
   let started = false
+  /** 再生を拒まれた後、次の操作で鳴らし直す予約をしてあるか */
+  let retrying = false
 
-  /** 「鳴っているべきか」を計算して、実際の再生をそこへ寄せる */
-  const sync = () => {
-    if (started && !muted && !document.hidden) {
-      // 再生を拒まれることがある（操作の外から呼ばれた等）。
-      // 無音でも遊べるので、握りつぶして進める
-      audio.play().catch(() => {})
+  const retry = () => {
+    retrying = false
+    sync()
+  }
+
+  /**
+   * 再生は拒まれることがある（省電力モードなど、操作を起点にしていても起きる）。
+   * 拒まれたまま黙ると、ボタンは「♪ ON」なのに一生鳴らない。次の操作で鳴らし直す
+   */
+  const armRetry = () => {
+    if (retrying) return
+    retrying = true
+    document.addEventListener('pointerdown', retry, { once: true })
+  }
+
+  const disarmRetry = () => {
+    if (!retrying) return
+    retrying = false
+    document.removeEventListener('pointerdown', retry)
+  }
+
+  function sync() {
+    if (shouldPlay({ started, muted, hidden: document.hidden })) {
+      audio.play().then(disarmRetry, armRetry)
     } else {
       // stop ではなく pause。曲の位置が残るので、戻したときに続きから鳴る
       audio.pause()
+      disarmRetry()
     }
   }
 
@@ -81,6 +118,7 @@ export function createBgm(): Bgm {
     },
     dispose() {
       document.removeEventListener('visibilitychange', sync)
+      disarmRetry()
       audio.pause()
       // 読み込み中の通信を打ち切る。開発中のホットリロードで多重に走らせない
       audio.removeAttribute('src')

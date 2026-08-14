@@ -40,3 +40,6 @@ npm run build
 BGM: **Starry Eyed / YM-2608 Chiptune** — フリーBGM・音楽素材 [MusMus](https://musmus.main.jp/)（作曲: watson）
 
 MusMus の[利用規約](https://musmus.main.jp/info.html)に従って使用している。
+
+同梱している mp3 は**このゲームの BGM として**置いてあるもの。素材として取り出して使わないこと。
+音楽素材を使いたい場合は [MusMus](https://musmus.main.jp/) から直接ダウンロードしてください。
