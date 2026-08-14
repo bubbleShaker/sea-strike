@@ -70,9 +70,9 @@ canvas {
   background: var(--hud);
 }
 
-.mode-badge {
+/* 画面の隅に置く小さなボタンの共通形。位置だけを各自が決める */
+.badge {
   position: absolute;
-  top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
   padding: 6px 12px;
   font: inherit;
@@ -85,8 +85,17 @@ canvas {
   cursor: pointer;
 }
 
+.mode-badge {
+  top: max(12px, env(safe-area-inset-top));
+}
+
+/* 操作モードのバッジの真下。高さ + 余白ぶんだけ下げる */
+.mute-button {
+  top: calc(max(12px, env(safe-area-inset-top)) + 36px);
+}
+
 /* スワイプ操作中は再センタリングする対象が無いので、ただの表示に戻る */
-.mode-badge:disabled {
+.badge:disabled {
   cursor: default;
   pointer-events: none;
 }
@@ -356,6 +365,18 @@ canvas {
   font-size: 11px;
   line-height: 1.7;
   color: color-mix(in srgb, #e8f6ff 52%, transparent);
+}
+
+/* 素材の著作権表示。MusMus の利用規約が求めている */
+.panel__credit {
+  margin-top: 20px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, #e8f6ff 38%, transparent);
+}
+
+.panel__credit a {
+  color: inherit;
 }
 
 .button {

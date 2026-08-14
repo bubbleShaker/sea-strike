@@ -8,8 +8,14 @@ export type ControlChoice = 'tilt' | 'swipe'
  * 画面を挟むのは演出のためではない。iOS では傾きセンサーの許可が
  * 「ユーザーのタップから直接始まった呼び出し」でしか取れないので、
  * 押してもらうボタンがどうしても要る。
+ *
+ * `onActivate` は、その「タップから直接」でなければできないことを託す口。
+ * 音の再生も同じ制約を持つので、ここで一緒に済ませる
  */
-export function showStartScreen(container: HTMLElement): Promise<ControlChoice> {
+export function showStartScreen(
+  container: HTMLElement,
+  onActivate: () => void,
+): Promise<ControlChoice> {
   const overlay = document.createElement('div')
   overlay.className = 'overlay'
   // 開始画面の上で指を滑らせても照準が動かないようにする
@@ -32,6 +38,10 @@ export function showStartScreen(container: HTMLElement): Promise<ControlChoice> 
           ? '傾きが使えない端末では、自動でスワイプに切り替わる。'
           : 'この端末では傾きセンサーが使えないため、スワイプで操作する。'
       }</p>
+      <p class="panel__credit">
+        BGM: <a href="https://musmus.main.jp/" target="_blank" rel="noopener noreferrer">MusMus</a>
+        「Starry Eyed」
+      </p>
     </div>
   `
 
@@ -46,6 +56,10 @@ export function showStartScreen(container: HTMLElement): Promise<ControlChoice> 
     overlay.addEventListener('click', async (event) => {
       const button = (event.target as Element).closest<HTMLButtonElement>('[data-choice]')
       if (!button) return
+
+      // 許可ダイアログを待つ await を挟むと、この処理はユーザーのタップから
+      // 切り離される。タップ起点でしか通らないことは、その前に済ませる
+      onActivate()
 
       if (button.dataset.choice === 'swipe') {
         finish('swipe')
