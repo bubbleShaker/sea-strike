@@ -7,6 +7,7 @@ import { createWorld, stepWorld } from './game/world'
 import { createCrosshair } from './ui/crosshair'
 import { createModeBadge } from './ui/mode-badge'
 import { createFireButton } from './ui/fire-button'
+import { createWeaponSelector } from './ui/weapon-selector'
 import { createHud } from './ui/hud'
 import { showStartScreen } from './ui/start-screen'
 
@@ -23,6 +24,7 @@ const stage = createStage(container)
 const crosshair = createCrosshair(container)
 const hud = createHud(container)
 const fireButton = createFireButton(container)
+const weaponSelector = createWeaponSelector(container)
 
 let world = createWorld()
 let lastMs = performance.now()
@@ -40,10 +42,11 @@ function loop(nowMs: number) {
   if (aimSource) {
     world = stepWorld(
       world,
-      { aim: aimSource.read(), firing: fireButton.isFiring(), weapon: 'vulcan' },
+      { aim: aimSource.read(), firing: fireButton.isFiring(), weapon: weaponSelector.current() },
       dt,
     )
     modeBadge.update(aimSource.kind)
+    weaponSelector.update(world)
     hud.update(world)
   }
   stage.render(nowMs / 1000, dt, world)
@@ -59,6 +62,7 @@ import.meta.hot?.dispose(() => {
   cancelAnimationFrame(frame)
   aimSource?.dispose()
   fireButton.dispose()
+  weaponSelector.dispose()
   stage.dispose()
   crosshair.remove()
   document.querySelectorAll('.mode-badge, .overlay, .hud').forEach((element) => element.remove())

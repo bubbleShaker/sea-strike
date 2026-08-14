@@ -1,17 +1,18 @@
 import * as THREE from 'three'
 import type { Bullet } from '../game/world'
 import type { WeaponId } from '../game/weapons'
+import { WEAPON_COLOR } from '../theme'
 
 /** 同時に飛ぶ弾の上限。連射と散弾が重なった時の最大を見込んだ数 */
 const MAX_BULLETS = 220
 
-/** 弾の色。武器を持ち替えたことが手元を見なくても分かるようにする */
+/** 弾の色。UI の持ち替えボタンと同じ定数から作り、色がずれないようにする */
 const BULLET_COLOR: Record<WeaponId, THREE.Color> = {
-  vulcan: new THREE.Color('#ffd24a'),
-  cannon: new THREE.Color('#ff8a3d'),
-  spread: new THREE.Color('#b6f05a'),
-  homing: new THREE.Color('#ff6ad5'),
-  laser: new THREE.Color('#68f0ff'),
+  vulcan: new THREE.Color(WEAPON_COLOR.vulcan),
+  cannon: new THREE.Color(WEAPON_COLOR.cannon),
+  spread: new THREE.Color(WEAPON_COLOR.spread),
+  homing: new THREE.Color(WEAPON_COLOR.homing),
+  laser: new THREE.Color(WEAPON_COLOR.laser),
 }
 
 /**
