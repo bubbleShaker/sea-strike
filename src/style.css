@@ -74,12 +74,20 @@ canvas {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  padding: 4px 10px;
+  padding: 6px 12px;
+  font: inherit;
   font-size: 11px;
   letter-spacing: 0.18em;
   color: color-mix(in srgb, var(--hud) 80%, transparent);
+  background: color-mix(in srgb, #06131f 35%, transparent);
   border: 1px solid color-mix(in srgb, var(--hud) 30%, transparent);
   border-radius: 999px;
+  cursor: pointer;
+}
+
+/* スワイプ操作中は再センタリングする対象が無いので、ただの表示に戻る */
+.mode-badge:disabled {
+  cursor: default;
   pointer-events: none;
 }
 

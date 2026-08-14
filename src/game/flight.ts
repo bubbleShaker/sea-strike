@@ -1,23 +1,10 @@
 import { CRUISE_ALTITUDE } from './constants'
+import { clampAim, type AimState } from './aim'
 
 export interface Vec3 {
   x: number
   y: number
   z: number
-}
-
-/**
- * 照準の入力。画面上の照準の変位に相当する -1..1 の値で、単位も角度も持たない。
- *
- * 角度に直すのは flight（ゲームの規則）の仕事にしている。
- * 入力層は「どれだけ倒したか」だけを言えばよく、可動範囲を知らずに済む。
- * 傾きとスワイプが同じ範囲を同じ速さで狙えるのは、この一点に合流するため。
- */
-export interface AimState {
-  /** 右が + */
-  x: number
-  /** 上が + */
-  y: number
 }
 
 export interface FlightState {
@@ -44,6 +31,13 @@ export const MIN_ALTITUDE = 14
 export const MAX_ALTITUDE = 170
 
 /**
+ * 航路の中心から左右に離れられる限界[m]。
+ * 敵はワールド座標に置くので、際限なく横流れされると
+ * 「目の前に現れる」という前提そのものが崩れる
+ */
+export const LATERAL_LIMIT = 420
+
+/**
  * 機首の向きに対して機体をどれだけ傾けるか。見た目のためだけの係数。
  * 大きくすると水平線が大きく回り、狙いが定めづらくなる
  */
@@ -62,6 +56,8 @@ export function createFlightState(): FlightState {
 }
 
 function clamp(value: number, min: number, max: number): number {
+  // 一度でも NaN が入ると座標が二度と戻らないので、ここで断つ
+  if (!Number.isFinite(value)) return 0
   return Math.min(Math.max(value, min), max)
 }
 
@@ -82,8 +78,8 @@ function approach(current: number, target: number, rate: number, dt: number): nu
  * 一定に保てる。
  */
 export function stepFlight(state: FlightState, aim: AimState, dt: number): FlightState {
-  const targetYaw = -clamp(aim.x, -1, 1) * YAW_LIMIT
-  const targetPitch = clamp(aim.y, -1, 1) * PITCH_LIMIT
+  const targetYaw = -clampAim(aim.x) * YAW_LIMIT
+  const targetPitch = clampAim(aim.y) * PITCH_LIMIT
 
   const yaw = approach(state.yaw, targetYaw, AIM_RESPONSE, dt)
   const pitch = approach(state.pitch, targetPitch, AIM_RESPONSE, dt)
@@ -93,7 +89,7 @@ export function stepFlight(state: FlightState, aim: AimState, dt: number): Fligh
 
   return {
     position: {
-      x: state.position.x + lateral,
+      x: clamp(state.position.x + lateral, -LATERAL_LIMIT, LATERAL_LIMIT),
       y: clamp(state.position.y + Math.sin(pitch) * CLIMB_SPEED * dt, MIN_ALTITUDE, MAX_ALTITUDE),
       z: state.position.z - FORWARD_SPEED * dt,
     },

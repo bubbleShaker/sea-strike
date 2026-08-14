@@ -1,4 +1,4 @@
-import type { AimState } from '../game/flight'
+import type { AimState } from '../game/aim'
 
 /**
  * 照準の入力源。傾きもスワイプも、この形に揃えてからゲームへ渡す。
@@ -7,7 +7,15 @@ import type { AimState } from '../game/flight'
  * 「傾けられない時にスワイプで同等の操作」という要件は、この境界だけで満たす。
  */
 export interface AimSource {
+  /**
+   * 今どちらの操作が効いているか。表示以外の判断に使わないこと。
+   * 実装によっては（傾き / スワイプの自動切り替え）読むたびに変わる
+   */
   readonly kind: 'tilt' | 'swipe'
+  /**
+   * 現在の照準。呼び出しごとに同じオブジェクトを返す実装があるので、
+   * 保持せずその場で使うこと
+   */
   read(): AimState
   dispose(): void
 }

@@ -3,13 +3,14 @@ import {
   createFlightState,
   stepFlight,
   FORWARD_SPEED,
+  LATERAL_LIMIT,
   MAX_ALTITUDE,
   MIN_ALTITUDE,
   PITCH_LIMIT,
   YAW_LIMIT,
-  type AimState,
   type FlightState,
 } from './flight'
+import type { AimState } from './aim'
 
 /** 入力を据え置いたまま一定時間進める */
 function fly(state: FlightState, aim: AimState, seconds: number, dt = 1 / 60): FlightState {
@@ -42,6 +43,19 @@ describe('stepFlight', () => {
     const left = fly(createFlightState(), { x: -1, y: 0 }, 2)
     expect(right.position.x).toBeGreaterThan(0)
     expect(left.position.x).toBeLessThan(0)
+  })
+
+  it('航路から左右に離れすぎない（敵の配置が成り立たなくなる）', () => {
+    const drifted = fly(createFlightState(), { x: 1, y: 0 }, 60)
+    expect(drifted.position.x).toBeLessThanOrEqual(LATERAL_LIMIT)
+    expect(drifted.position.x).toBeGreaterThan(LATERAL_LIMIT - 1)
+  })
+
+  it('入力が壊れても機体の座標は壊れない', () => {
+    const broken = fly(createFlightState(), { x: Number.NaN, y: Number.NaN }, 2)
+    expect(Number.isFinite(broken.position.x)).toBe(true)
+    expect(Number.isFinite(broken.position.y)).toBe(true)
+    expect(Number.isFinite(broken.yaw)).toBe(true)
   })
 
   it('高度は海面下にも成層圏にも行かない', () => {

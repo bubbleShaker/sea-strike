@@ -55,13 +55,8 @@ export function showStartScreen(container: HTMLElement): Promise<ControlChoice> 
       // 許可ダイアログを待つ間、二度押しで二重に要求しないよう閉じておく
       button.disabled = true
       const granted = needsTiltPermission() ? await requestTiltPermission() : true
-      if (!granted) {
-        button.disabled = false
-        const note = overlay.querySelector('.panel__note')
-        if (note) note.textContent = '傾きの利用が許可されなかった。スワイプで操作する。'
-        return
-      }
-      finish('tilt')
+      // 許可されなくても始められないと詰む。断られたらそのままスワイプで始める
+      finish(granted ? 'tilt' : 'swipe')
     })
   })
 }

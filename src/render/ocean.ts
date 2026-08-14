@@ -100,12 +100,12 @@ export function createOcean(): Ocean {
         // 細かいさざ波。頂点で作ると 1 マス 47m の格子には収まらない（折り返す）ので、
         // 高さは動かさず法線だけをここで揺らす。速度感はこの細かさから出る。
         // 遠くでは 1 画素に何周期も入ってちらつくため、距離で消す
-        vec2 ripplePosition = vWorldPosition.xz;
+        vec2 surface = vWorldPosition.xz; // 海面上の位置（x, z）
         float rippleFade = 1.0 - smoothstep(150.0, 1200.0, distance);
-        float rippleDx = cos(ripplePosition.x * 0.16 + uTime * 3.1) * 0.30;
-        float rippleDz = cos(ripplePosition.y * 0.19 - uTime * 2.6) * 0.26;
+        float rippleDx = cos(surface.x * 0.16 + uTime * 3.1) * 0.30;
+        float rippleDz = cos(surface.y * 0.19 - uTime * 2.6) * 0.26;
         // 直交する 2 波だけだと市松模様に見える。斜めの波を重ねて格子を崩す
-        float diagonal = cos((ripplePosition.x + ripplePosition.y) * 0.105 + uTime * 2.2) * 0.20;
+        float diagonal = cos((surface.x + surface.y) * 0.105 + uTime * 2.2) * 0.20;
         rippleDx += diagonal;
         rippleDz += diagonal;
         normal = normalize(normal + vec3(-rippleDx, 0.0, -rippleDz) * rippleFade);

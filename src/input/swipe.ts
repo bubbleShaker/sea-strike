@@ -1,4 +1,4 @@
-import type { AimState } from '../game/flight'
+import { clampAim, type AimState } from '../game/aim'
 import type { AimSource } from './aim'
 
 /**
@@ -11,6 +11,11 @@ const TRAVEL_RATIO = 0.4
 /** この属性を持つ要素の上で始まった操作は照準に使わない（発射ボタンなど） */
 const IGNORE_SELECTOR = '[data-no-aim]'
 
+export interface SwipeSource extends AimSource {
+  /** 照準をその値から始める。傾きから引き継ぐときに使う */
+  set(aim: AimState): void
+}
+
 /**
  * 指のドラッグを照準に変える。
  *
@@ -18,15 +23,13 @@ const IGNORE_SELECTOR = '[data-no-aim]'
  * 傾け操作では端末を傾け続けている限り角度が保たれるので、
  * 指を離すと中央へ戻る方式にすると、両者の手応えが揃わない。
  */
-export function createSwipeSource(target: HTMLElement): AimSource {
+export function createSwipeSource(target: HTMLElement): SwipeSource {
   const aim: AimState = { x: 0, y: 0 }
   let activePointer: number | null = null
   let lastX = 0
   let lastY = 0
 
   const travel = () => Math.min(window.innerWidth, window.innerHeight) * TRAVEL_RATIO
-
-  const clamp = (value: number) => Math.min(Math.max(value, -1), 1)
 
   const onPointerDown = (event: PointerEvent) => {
     if (activePointer !== null) return
@@ -42,9 +45,9 @@ export function createSwipeSource(target: HTMLElement): AimSource {
   const onPointerMove = (event: PointerEvent) => {
     if (event.pointerId !== activePointer) return
     const scale = travel()
-    aim.x = clamp(aim.x + (event.clientX - lastX) / scale)
+    aim.x = clampAim(aim.x + (event.clientX - lastX) / scale)
     // clientY は下が +。指を上へ動かしたときに上を向いてほしいので符号を反転する
-    aim.y = clamp(aim.y - (event.clientY - lastY) / scale)
+    aim.y = clampAim(aim.y - (event.clientY - lastY) / scale)
     lastX = event.clientX
     lastY = event.clientY
   }
@@ -62,6 +65,10 @@ export function createSwipeSource(target: HTMLElement): AimSource {
   return {
     kind: 'swipe',
     read: () => aim,
+    set(next) {
+      aim.x = clampAim(next.x)
+      aim.y = clampAim(next.y)
+    },
     dispose() {
       target.removeEventListener('pointerdown', onPointerDown)
       target.removeEventListener('pointermove', onPointerMove)
