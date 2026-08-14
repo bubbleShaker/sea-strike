@@ -60,6 +60,12 @@ export function createStage(container: HTMLElement): Stage {
   const enemyBulletView = createEnemyBulletView(scene)
   const effects = createEffects(scene)
 
+  /** 銃口の光を置く距離[m]。カメラに近すぎると画面が光で埋まる */
+  const MUZZLE_DISTANCE = 12
+  // 毎フレーム使う作業用のベクトル。ループの中で new しないため使い回す
+  const forward = new THREE.Vector3()
+  const muzzle = new THREE.Vector3()
+
   const resize = () => {
     const width = container.clientWidth
     const height = container.clientHeight
@@ -80,13 +86,27 @@ export function createStage(container: HTMLElement): Stage {
       // 既定の XYZ 順だと、上を向いた状態で左右に振ったとき視界が捩れる
       camera.rotation.set(world.flight.pitch, world.flight.yaw, world.flight.bank, 'YXZ')
 
+      // 機首の向きは、弾が飛んでいく方向でもある。銃口の光をそこに置く
+      forward.set(0, 0, -1).applyEuler(camera.rotation)
+      muzzle.copy(camera.position).addScaledVector(forward, MUZZLE_DISTANCE)
+
+      effects.emit(world.events, muzzle, forward)
+      effects.update(dt)
+
+      // 被弾の衝撃。視線そのものを揺らす（機体が揺れたように見せる）。
+      // 世界を揺らすのではなくカメラを揺らすので、当たり判定には影響しない
+      if (effects.shake > 0) {
+        const amount = effects.shake
+        camera.rotation.x += (Math.random() - 0.5) * 0.09 * amount
+        camera.rotation.y += (Math.random() - 0.5) * 0.09 * amount
+        camera.rotation.z += (Math.random() - 0.5) * 0.14 * amount
+      }
+
       sky.follow(camera.position)
       ocean.update(time, camera.position)
       enemyView.sync(world.enemies)
       bulletView.sync(world.bullets, camera.position)
       enemyBulletView.sync(world.enemyBullets, camera.position)
-      effects.emit(world.events)
-      effects.update(dt)
       renderer.render(scene, camera)
     },
     dispose() {
