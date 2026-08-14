@@ -1,9 +1,36 @@
 import * as THREE from 'three'
 import type { WorldEvent } from '../game/world'
 import { WEAPON_COLOR } from '../theme'
+import { addShake, decayShake } from './shake'
 
 const BURST_POOL = 28
 const DEBRIS_POOL = 64
+
+/** 演出の大きさ[m]。距離で補正する前の基準値 */
+const HIT_SIZE = 14
+const KILL_SIZE = 70
+/**
+ * 銃口の光は自機の数 m 先で光る。他の演出と同じ大きさにすると、
+ * 近すぎて画面の下半分を覆う。視界の端で瞬く程度に留める
+ */
+const MUZZLE_SIZE = 1.8
+
+const HIT_DURATION = 0.22
+const KILL_DURATION = 0.8
+const MUZZLE_DURATION = 0.06
+
+/** 1 回の撃墜で飛ばす破片の数 */
+const DEBRIS_PER_KILL = 8
+/** 破片の基準の大きさ[m]。実寸は機体（翼幅 26m）の破片としては小さめ */
+const DEBRIS_SIZE = 1.6
+/**
+ * 遠くの破片が 1 画素以下になると、描いても見えないのに負荷だけ残る。
+ * 距離に応じて見かけの大きさを保つ（弾の曳光と同じ手）
+ */
+const DEBRIS_APPARENT_SCALE = 0.004
+const DEBRIS_GRAVITY = 60
+/** 落ちながら小さくなって消える。急に消えると目に付く */
+const DEBRIS_SHRINK = 0.35
 
 interface Burst {
   sprite: THREE.Sprite
@@ -14,11 +41,13 @@ interface Burst {
 }
 
 interface Debris {
-  mesh: THREE.Mesh
+  position: THREE.Vector3
+  rotation: THREE.Euler
   velocity: THREE.Vector3
   spin: THREE.Vector3
+  /** 基準の大きさ。表示時に距離で補正する */
+  size: number
   life: number
-  duration: number
 }
 
 /**
@@ -49,10 +78,10 @@ function createGlowTexture(): THREE.Texture {
 
 export interface Effects {
   /** そのフレームの出来事を受け取って演出を置く */
-  emit(events: WorldEvent[], muzzle: THREE.Vector3, forward: THREE.Vector3): void
-  update(dt: number): void
+  emit(events: WorldEvent[]): void
+  update(dt: number, cameraPosition: THREE.Vector3): void
   /**
-   * 被弾などで積んだ揺れの強さ。stage がカメラに適用する。
+   * 被弾で積んだ揺れの強さ。stage がカメラに適用する。
    * 揺らすのはカメラの持ち主の仕事なので、ここでは量だけを持つ
    */
   readonly shake: number
@@ -63,7 +92,8 @@ export interface Effects {
  * 命中・撃墜・発射の手応え。
  *
  * 当たったかどうかは、数字より先に目で分かる必要がある。
- * ここは世界の状態を持たず、通知（WorldEvent）を見て一度きりの光を置くだけ。
+ * ここが持つのは演出の状態（光の寿命、破片の飛び方、揺れの残量）だけで、
+ * 世界の状態は持たない。通知（WorldEvent）を見て一度きりの光を置く。
  */
 export function createEffects(scene: THREE.Scene): Effects {
   const texture = createGlowTexture()
@@ -84,25 +114,30 @@ export function createEffects(scene: THREE.Scene): Effects {
     bursts.push({ sprite, life: 0, duration: 1, size: 1 })
   }
 
-  // 破片は爆発の全機で使い回す。形は同じで向きだけ違えば、飛び散って見える
-  const debrisGeometry = new THREE.TetrahedronGeometry(1.6)
-  const debrisMaterial = new THREE.MeshStandardMaterial({
-    color: '#5a6672',
-    roughness: 0.7,
-    metalness: 0.3,
-  })
+  // 破片は形も色も同じなので、1 回の描画命令でまとめて出す。
+  // 64 個を個別の Mesh にすると、敵機 5 機ぶん（25）より多いドローコールを
+  // 破片だけで払うことになる
+  const debrisGeometry = new THREE.TetrahedronGeometry(DEBRIS_SIZE)
+  const debrisMaterial = new THREE.MeshLambertMaterial({ color: '#5a6672' })
+  const debrisMesh = new THREE.InstancedMesh(debrisGeometry, debrisMaterial, DEBRIS_POOL)
+  debrisMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  debrisMesh.frustumCulled = false
+  debrisMesh.count = 0
+  scene.add(debrisMesh)
+
   for (let i = 0; i < DEBRIS_POOL; i++) {
-    const mesh = new THREE.Mesh(debrisGeometry, debrisMaterial)
-    mesh.visible = false
-    scene.add(mesh)
     debris.push({
-      mesh,
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
       velocity: new THREE.Vector3(),
       spin: new THREE.Vector3(),
+      size: 1,
       life: 0,
-      duration: 1,
     })
   }
+
+  // 行列を組み立てるための使い捨ての入れ物。毎フレーム new しないため使い回す
+  const dummy = new THREE.Object3D()
 
   const placeBurst = (
     position: { x: number; y: number; z: number },
@@ -126,10 +161,10 @@ export function createEffects(scene: THREE.Scene): Effects {
     for (const piece of debris) {
       if (placed >= count) break
       if (piece.life > 0) continue
-      piece.mesh.position.set(position.x, position.y, position.z)
-      piece.mesh.visible = true
-      piece.mesh.scale.setScalar(0.6 + Math.random() * 0.9)
-      // 球面に一様な方向へ弾き飛ばす
+      piece.position.set(position.x, position.y, position.z)
+      piece.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6)
+      piece.size = 0.6 + Math.random() * 0.9
+      // 球面に一様な方向へ弾き飛ばす（角度を 2 つ振ると極に偏る）
       const theta = Math.random() * Math.PI * 2
       const z = Math.random() * 2 - 1
       const r = Math.sqrt(1 - z * z)
@@ -137,7 +172,6 @@ export function createEffects(scene: THREE.Scene): Effects {
       piece.velocity.set(r * Math.cos(theta) * speed, r * Math.sin(theta) * speed, z * speed)
       piece.spin.set(Math.random() * 8 - 4, Math.random() * 8 - 4, Math.random() * 8 - 4)
       piece.life = 1.1 + Math.random() * 0.6
-      piece.duration = piece.life
       placed += 1
     }
   }
@@ -146,24 +180,22 @@ export function createEffects(scene: THREE.Scene): Effects {
     get shake() {
       return shake
     },
-    emit(events, muzzle, forward) {
+    emit(events) {
       for (const event of events) {
         if (event.type === 'hit') {
-          placeBurst(event.position, 14, 0.22, '#ffd9a0')
+          placeBurst(event.position, HIT_SIZE, HIT_DURATION, '#ffd9a0')
         } else if (event.type === 'kill') {
-          placeBurst(event.position, 70, 0.8, '#ffb066')
-          scatterDebris(event.position, 8)
+          placeBurst(event.position, KILL_SIZE, KILL_DURATION, '#ffb066')
+          scatterDebris(event.position, DEBRIS_PER_KILL)
         } else if (event.type === 'fire') {
-          // 銃口の光。弾そのものより手前で一瞬だけ光らせる
-          const flash = muzzle.clone().addScaledVector(forward, 4)
-          placeBurst(flash, 5, 0.06, WEAPON_COLOR[event.weapon])
+          // 銃口の光。位置は世界が教えてくれる（描画側で計算し直さない）
+          placeBurst(event.position, MUZZLE_SIZE, MUZZLE_DURATION, WEAPON_COLOR[event.weapon])
         } else if (event.type === 'damage') {
-          // 受けた量に応じて揺らす。上限を置かないと接触で画面が飛ぶ
-          shake = Math.min(shake + event.amount * 0.014, 1.1)
+          shake = addShake(shake, event.amount)
         }
       }
     },
-    update(dt) {
+    update(dt, cameraPosition) {
       for (const burst of bursts) {
         if (burst.life <= 0) continue
         burst.life -= dt
@@ -178,34 +210,46 @@ export function createEffects(scene: THREE.Scene): Effects {
         burst.sprite.material.opacity = 1 - progress * progress
       }
 
+      let visible = 0
       for (const piece of debris) {
         if (piece.life <= 0) continue
         piece.life -= dt
-        if (piece.life <= 0) {
-          piece.mesh.visible = false
+        piece.position.addScaledVector(piece.velocity, dt)
+        // 落ちていく。空中で止まると破片に見えない
+        piece.velocity.y -= DEBRIS_GRAVITY * dt
+        piece.rotation.x += piece.spin.x * dt
+        piece.rotation.y += piece.spin.y * dt
+        piece.rotation.z += piece.spin.z * dt
+        piece.size *= 1 - dt * DEBRIS_SHRINK
+        // 海に落ちたら終わり。海面下を沈み続けても誰にも見えない
+        if (piece.life <= 0 || piece.position.y <= 0) {
+          piece.life = 0
           continue
         }
-        piece.mesh.position.addScaledVector(piece.velocity, dt)
-        // 落ちていく。空中で止まると破片に見えない
-        piece.velocity.y -= 60 * dt
-        piece.mesh.rotation.x += piece.spin.x * dt
-        piece.mesh.rotation.y += piece.spin.y * dt
-        piece.mesh.rotation.z += piece.spin.z * dt
-        piece.mesh.scale.multiplyScalar(1 - dt * 0.35)
-      }
 
-      // 揺れは指数的に収まる。dt に依らず同じ速さで落ち着かせる
-      shake *= Math.exp(-6 * dt)
-      if (shake < 0.002) shake = 0
+        dummy.position.copy(piece.position)
+        dummy.rotation.copy(piece.rotation)
+        // 遠いほど実寸より大きく描く。そうしないと画素に届かない
+        const distance = cameraPosition.distanceTo(piece.position)
+        dummy.scale.setScalar(Math.max(piece.size, distance * DEBRIS_APPARENT_SCALE))
+        dummy.updateMatrix()
+        debrisMesh.setMatrixAt(visible, dummy.matrix)
+        visible += 1
+      }
+      debrisMesh.count = visible
+      debrisMesh.instanceMatrix.needsUpdate = true
+
+      shake = decayShake(shake, dt)
     },
     dispose() {
       for (const burst of bursts) {
         scene.remove(burst.sprite)
         burst.sprite.material.dispose()
       }
-      for (const piece of debris) scene.remove(piece.mesh)
       bursts.length = 0
       debris.length = 0
+      scene.remove(debrisMesh)
+      debrisMesh.dispose()
       debrisGeometry.dispose()
       debrisMaterial.dispose()
       texture.dispose()

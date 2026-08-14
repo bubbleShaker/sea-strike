@@ -57,7 +57,7 @@ export interface Bullet {
 export type WorldEvent =
   | { type: 'hit'; position: Vec3 }
   | { type: 'kill'; position: Vec3 }
-  | { type: 'fire'; weapon: WeaponId }
+  | { type: 'fire'; weapon: WeaponId; position: Vec3 }
   | { type: 'damage'; amount: number }
 
 /** 決着。playing 以外になったら世界は動かない */
@@ -389,7 +389,13 @@ export function stepWorld(
     if (remaining !== null) ammo[command.weapon] = remaining - 1
     // 命中率の分母は「出した弾の数」。散弾は 1 回で 7 発ぶん背負う
     shots += shot.bullets.length
-    events.push({ type: 'fire', weapon: command.weapon })
+    // 銃口の位置は世界が知っている。描画側に再計算させると、
+    // 光る場所と弾の出どころが静かにずれていく
+    events.push({
+      type: 'fire',
+      weapon: command.weapon,
+      position: { ...(shot.bullets[0]?.position ?? flight.position) },
+    })
   } else {
     // 撃たずに待っても貯まらない（溜めておいて一気に連射する裏技を作らない）
     cooldown = Math.max(cooldown, 0)

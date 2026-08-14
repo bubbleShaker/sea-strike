@@ -65,7 +65,18 @@ describe('発射', () => {
   it('撃つと弾が出る', () => {
     const after = stepWorld(createWorld(), { ...still, firing: true }, 1 / 60, fixedRandom)
     expect(after.bullets.length).toBe(1)
-    expect(after.events).toContainEqual({ type: 'fire', weapon: 'vulcan' })
+    expect(after.events).toContainEqual(
+      expect.objectContaining({ type: 'fire', weapon: 'vulcan' }),
+    )
+    // 銃口の位置も通知する（描画側に再計算させない）。
+    // 弾はこのフレームで既に進んでいるので、その手前・自機のすぐ近くにある
+    const fired = after.events.find((event) => event.type === 'fire')
+    const muzzle = fired && 'position' in fired ? fired.position : null
+    expect(muzzle).not.toBeNull()
+    const bullet = after.bullets[0]!
+    expect(Math.hypot(muzzle!.x - after.flight.position.x, muzzle!.z - after.flight.position.z))
+      .toBeLessThan(20)
+    expect(muzzle!.z).toBeGreaterThan(bullet.position.z)
   })
 
   it('連射間隔より短い間に二度は撃てない', () => {
@@ -202,7 +213,7 @@ describe('命中と撃墜', () => {
     const empty: World = { ...base, ammo: { ...base.ammo, cannon: 0 } }
     const after = stepWorld(empty, { ...still, firing: true, weapon: 'cannon' }, 1 / 60, fixedRandom)
     expect(after.bullets).toHaveLength(0)
-    expect(after.events).not.toContainEqual({ type: 'fire', weapon: 'cannon' })
+    expect(after.events.some((event) => event.type === 'fire')).toBe(false)
     expect(after.cooldown).toBe(0)
   })
 
